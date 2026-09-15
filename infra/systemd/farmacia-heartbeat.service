@@ -1,0 +1,11 @@
+[Unit]
+Description=Farmacia Cold Chain Monitor heartbeat guardian
+After=farmacia-monitoreo.service
+
+[Service]
+Type=oneshot
+User=farmacia
+Group=farmacia
+WorkingDirectory=/opt/farmacia-cold-chain-monitor/server
+EnvironmentFile=/etc/farmacia-monitor.env
+ExecStart=/opt/farmacia-cold-chain-monitor/.venv/bin/python -m app.guardian

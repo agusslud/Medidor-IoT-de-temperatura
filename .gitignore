@@ -1,0 +1,23 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# PlatformIO
+firmware/.pio/
+firmware/.vscode/
+firmware/include/config.h
+
+# Runtime and secrets
+server/.env
+server/data/*.db
+server/data/*.db-*
+*.log
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.repo_git/

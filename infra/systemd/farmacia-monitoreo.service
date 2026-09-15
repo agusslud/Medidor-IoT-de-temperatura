@@ -1,0 +1,19 @@
+[Unit]
+Description=Farmacia Cold Chain Monitor API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=farmacia
+Group=farmacia
+WorkingDirectory=/opt/farmacia-cold-chain-monitor/server
+EnvironmentFile=/etc/farmacia-monitor.env
+ExecStart=/opt/farmacia-cold-chain-monitor/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
