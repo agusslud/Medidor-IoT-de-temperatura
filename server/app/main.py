@@ -1,13 +1,15 @@
 from contextlib import asynccontextmanager, closing
-from typing import Annotated
+from datetime import UTC
+from typing import Annotated, Literal
 
-from fastapi import Body, FastAPI, HTTPException, Response, status
+from fastapi import Body, FastAPI, HTTPException, Query, Response, status
+from pydantic import AwareDatetime
 
-from .contract_v2 import Event, Heartbeat, HeartbeatReply, Summary
+from .contract_v2 import Event, Heartbeat, HeartbeatReply, HistoryPage, Summary
 from .database import connect, history, initialize, save_telemetry, set_config
 from .schemas import OffsetConfigIn, TelemetryIn
 from .settings import settings
-from .storage_v2 import initialize_v2, save_record
+from .storage_v2 import initialize_v2, record_history, save_record
 
 
 @asynccontextmanager
@@ -42,6 +44,23 @@ def create_record_v2(
 def heartbeat_v2(item: Heartbeat) -> HeartbeatReply:
     # A running system clock alone does not prove NTP synchronization.
     return HeartbeatReply(server_time=None, time_quality="unknown")
+
+
+@app.get("/api/v2/records", response_model=HistoryPage)
+def history_v2(
+    device_id: Annotated[str, Query(min_length=1, max_length=80)],
+    record_type: Literal["temperature_summary", "event"] | None = None,
+    time_basis: Literal["observed", "received"] = "observed",
+    start: AwareDatetime | None = None, end: AwareDatetime | None = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> HistoryPage:
+    start = start.astimezone(UTC) if start else None
+    end = end.astimezone(UTC) if end else None
+    if start is not None and end is not None and start > end:
+        raise HTTPException(status_code=422, detail="start must not be after end")
+    return record_history(settings.database_path, device_id, record_type,
+                          time_basis, start, end, limit, offset)
 
 
 @app.post("/api/telemetry", status_code=status.HTTP_201_CREATED)

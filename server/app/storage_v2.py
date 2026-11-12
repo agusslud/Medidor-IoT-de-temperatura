@@ -3,8 +3,10 @@
 import json
 import sqlite3
 from contextlib import closing
+from datetime import datetime
+from typing import Literal
 
-from .contract_v2 import Event, Summary
+from .contract_v2 import Event, HistoryItem, HistoryPage, Summary
 from .database import connect
 
 
@@ -44,3 +46,32 @@ def save_record(database_path: str, record: Summary | Event) -> tuple[str, int]:
             "VALUES (?, ?, ?, ?, ?)", (*key, record.type, payload),
         )
         return "stored", int(cursor.lastrowid)
+
+
+def record_history(
+    database_path: str, device_id: str, record_type: str | None,
+    time_basis: Literal["observed", "received"], start: datetime | None,
+    end: datetime | None, limit: int, offset: int,
+) -> HistoryPage:
+    time_column = "json_extract(payload, '$.observed_at')" if time_basis == "observed" else "received_at"
+    # Only fixed SQL expressions are interpolated; user input is bound as parameters.
+    instant = f"julianday({time_column})"
+    conditions = ["device_id = ?", f"{instant} IS NOT NULL"]
+    parameters: list[object] = [device_id]
+    if record_type is not None:
+        conditions.append("record_type = ?")
+        parameters.append(record_type)
+    for boundary, operator in ((start, ">="), (end, "<")):
+        if boundary is not None:
+            conditions.append(f"{instant} {operator} julianday(?)")
+            parameters.append(boundary.isoformat())
+    query = ("SELECT id, received_at, payload FROM telemetry_v2 WHERE "
+             + " AND ".join(conditions)
+             + f" ORDER BY {instant} DESC, id DESC LIMIT ? OFFSET ?")
+    with closing(connect(database_path)) as connection:
+        rows = connection.execute(query, (*parameters, limit + 1, offset)).fetchall()
+    return HistoryPage(
+        items=[HistoryItem(id=row["id"], received_at=row["received_at"],
+                           record=json.loads(row["payload"])) for row in rows[:limit]],
+        next_offset=offset + limit if len(rows) > limit else None,
+    )

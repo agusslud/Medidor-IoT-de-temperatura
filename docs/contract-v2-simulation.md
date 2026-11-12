@@ -74,6 +74,24 @@ del reloj deberán definirse antes de implementar el sistema real.
 
 ## Prueba manual
 
+### Historial v2
+
+`GET /api/v2/records?device_id=ESP32_SIMULADO` consulta por fecha de medición,
+del más reciente al más antiguo (desempate por ID descendente). Excluye horas
+desconocidas. Para incluirlas, usar `time_basis=received`; la fecha de recepción
+nunca se transforma en fecha de medición.
+
+Parámetros opcionales: `record_type=temperature_summary|event`, `start` incluido,
+`end` excluido (ambos con zona horaria, normalizados a UTC), `limit` entre 1 y 500
+(predeterminado 100) y `offset` no negativo (predeterminado 0).
+La respuesta contiene `items` con `id`, `received_at` y `record` completo, además
+de `next_offset` (nulo al terminar). Para continuar, repetir filtros y usar ese
+desplazamiento. Nuevas inserciones entre páginas pueden desplazar resultados.
+
+Ejemplo para datos offline sin hora:
+`GET /api/v2/records?device_id=ESP32_SIMULADO&time_basis=received&limit=10`.
+Ejemplo por medición: `GET /api/v2/records?device_id=ESP32_FARMACIA_01&start=2026-11-12T00:00:00Z&end=2026-11-13T00:00:00Z`.
+
 Desde `server`, con el entorno virtual instalado: ejecutar `uvicorn app.main:app`
 y en otra terminal ejecutar `python -m app.simulate_esp32`. El simulador envía un
 resumen y lo reintenta: el resultado esperado es HTTP 201 y luego HTTP 200 con el

@@ -101,6 +101,17 @@ WireMessage = Annotated[Summary | Event | Heartbeat, Field(discriminator="type")
 wire_adapter = TypeAdapter(WireMessage)
 
 
+class HistoryItem(BaseModel):
+    id: int
+    received_at: datetime
+    record: Annotated[Summary | Event, Field(discriminator="type")]
+
+
+class HistoryPage(BaseModel):
+    items: list[HistoryItem]
+    next_offset: int | None
+
+
 def estimate_time(record: TimedRecord, anchor_boot_id: UUID, anchor_uptime_ms: int,
                   anchor_time: datetime) -> datetime | None:
     """Estimate only from a trustworthy, same-boot UTC anchor; never fill gaps."""
