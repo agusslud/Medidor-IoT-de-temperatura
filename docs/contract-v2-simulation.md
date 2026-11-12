@@ -1,7 +1,7 @@
 # Contrato experimental v2 y simulación
 
-Este contrato es independiente de `POST /api/telemetry`: no se ha añadido un endpoint,
-no se ha cambiado la base de datos ni se ha conectado al firmware. Los modelos
+Este contrato es independiente de `POST /api/telemetry`: se reciben registros en
+`POST /api/v2/records` y heartbeats en `POST /api/v2/heartbeat`, sin conectar al firmware. Los modelos
 ejecutables están en `server/app/contract_v2.py` y la simulación en
 `server/app/contract_simulation.py`. No es apto para uso sanitario real.
 
@@ -46,7 +46,8 @@ El heartbeat se envía cada minuto cuando hay conexión, sin ocupar la cola hist
 ```
 
 La respuesta del heartbeat contiene `server_time` UTC y `time_quality` igual a
-`synchronized` o `unknown`; si el servidor no tiene hora confiable, usa `null`.
+`synchronized` o `unknown`. Por ahora siempre devuelve `null` y `unknown`: aún no
+hay comprobación de sincronización. El heartbeat no está persistido ni genera alarmas.
 
 ## Entrega y tiempo
 
@@ -55,6 +56,9 @@ responde `stored` para inserción nueva, `duplicate` para contenido idéntico y
 `conflict` para la misma clave con contenido diferente. Solo `stored` y `duplicate`
 permiten retirar un registro después de recibir la confirmación. Si se pierde la
 confirmación se reintenta; el conflicto queda pendiente para diagnóstico.
+La API responde HTTP 201 para `stored`, 200 para `duplicate` y 409 para conflicto.
+Cada registro se confirma después de persistirse en SQLite. Se mantiene la tabla
+anterior y se agrega una tabla v2 separada; no se borran ni migran datos anteriores.
 
 La cola simulada reserva 144 posiciones para resúmenes de 24 horas y 16 para eventos.
 Un exceso de eventos reemplaza únicamente los eventos más antiguos y no desplaza
@@ -67,3 +71,10 @@ Solo se estima una hora con un ancla UTC confiable del mismo arranque y posterio
 al registro. Si falta ancla o hay un reinicio, se conserva `unknown`: nunca se
 generan mediciones durante un apagado. Los detalles de incertidumbre y resincronización
 del reloj deberán definirse antes de implementar el sistema real.
+
+## Prueba manual
+
+Desde `server`, con el entorno virtual instalado: ejecutar `uvicorn app.main:app`
+y en otra terminal ejecutar `python -m app.simulate_esp32`. El simulador envía un
+resumen y lo reintenta: el resultado esperado es HTTP 201 y luego HTTP 200 con el
+mismo ID. El sistema todavía no tiene autenticación: usar solo en red aislada de prueba.

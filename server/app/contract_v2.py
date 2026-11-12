@@ -1,4 +1,4 @@
-"""Versioned experimental message models; not connected to the HTTP API."""
+"""Versioned telemetry models shared by the server and simulator."""
 
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
